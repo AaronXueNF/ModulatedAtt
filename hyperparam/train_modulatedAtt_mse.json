@@ -1,5 +1,5 @@
 {
-  "net": "cheng2020_baseline_woGMM",
+  "net": "cheng2020_ModulatedAtt_woGMM",
   "metric": "mse",
   "epochs": 100,
   "batch_size": 8,
@@ -18,11 +18,11 @@
   "train_set": "/home/DataSets/MSCOCO/train2017",
   "val_set": "/home/DataSets/Kodak",
 
-  "continue_training": false,
-  "current_checkpoint": "./checkpoints/cheng2020_baseline.ckpt",
-  "best_checkpoint": "./checkpoints/best_cheng2020_baseline.ckpt",
-  "summary": "./summary/cheng2020_baseline_tensorboard",
+  "continue_training": true,
+  "current_checkpoint": "./checkpoints/cheng2020_modulatedAtt.ckpt",
+  "best_checkpoint": "./checkpoints/best_cheng2020_modulatedAtt.ckpt",
+  "summary": "./summary/cheng2020_modulatedAtt_tensorboard",
 
   "use_pretrain": true,
-  "pretrain_checkpoint": "./checkpoints/pretrain/baseline_pretrain.ckpt"
+  "pretrain_checkpoint": "./checkpoints/pretrain/modulatedAtt_pretrain.ckpt"
 }

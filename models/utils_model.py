@@ -55,15 +55,13 @@ def load_pretrain_to_new_baseline(pretrain_state_dict, g_a, g_s):
 
 
 def _load_data_matt(Module, pretrain_state_dict, name, idx):
-    skip_a, skip_b = 0, 0
     for k, v in Module.state_dict().items():
-        temp = k.split('.')
-        skip_a += 1 if (temp[0] == 'conv_a' and temp[2] == 'scalar') else 0
-        skip_b += 1 if (temp[0] == 'conv_b' and temp[2] == 'scalar') else 0
         if 'scalar' in k:
             continue
-        temp[1] = str(int(temp[1]) - (skip_a if temp[0] == 'conv_a' else skip_b))
-        target_k = '.'.join(temp)
+        elif 'conv0' in k:
+            target_k = k.replace("_conv0",".3")
+        else:
+            target_k = k.replace("_RB",".")
         v.copy_(pretrain_state_dict[f'{name}.{idx}.' + target_k])
 
 

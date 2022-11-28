@@ -72,7 +72,24 @@ class Enc_ModulatedAtt(Enc_baseline):
     def __init__(self, N=192, levels=10, **kwargs):
         super().__init__()
         self.AttentionBlock0 = ModulatedAttentionBlock(N, levels)
-        self.AttentionBlock2 = ModulatedAttentionBlock(N, levels)
+        self.AttentionBlock1 = ModulatedAttentionBlock(N, levels)
+    
+    def forward(self, x, level, alpha):
+        x = self.ResidualBlockWithStride0(x)
+        x = self.ChannelModulator0(x, level, alpha)
+        x = self.ResidualBlock0(x)
+        x = self.ChannelModulator1(x, level, alpha)
+        x = self.ResidualBlockWithStride1(x)
+        x = self.AttentionBlock0(x, level, alpha)
+        x = self.ResidualBlock1(x)
+        x = self.ChannelModulator2(x, level, alpha)
+        x = self.ResidualBlockWithStride2(x)
+        x = self.ChannelModulator3(x, level, alpha)
+        x = self.ResidualBlock2(x)
+        x = self.ChannelModulator4(x, level, alpha)
+        x = self.conv0(x)
+        x = self.AttentionBlock1(x, level, alpha)
+        return x
 
 
 class Dec_baseline(nn.Module):
@@ -97,17 +114,17 @@ class Dec_baseline(nn.Module):
     def forward(self, x, level, alpha):
         x = self.AttentionBlock0(x)
         x = self.ResidualBlock0(x)
-        x = self.ChannelModulator0(x)
+        x = self.ChannelModulator0(x, level, alpha)
         x = self.ResidualBlockUpsample0(x)
-        x = self.ChannelModulator1(x)
+        x = self.ChannelModulator1(x, level, alpha)
         x = self.ResidualBlock1(x)
-        x = self.ChannelModulator2(x)
+        x = self.ChannelModulator2(x, level, alpha)
         x = self.ResidualBlockUpsample1(x)
         x = self.AttentionBlock1(x)
         x = self.ResidualBlock2(x)
-        x = self.ChannelModulator3(x)
+        x = self.ChannelModulator3(x, level, alpha)
         x = self.ResidualBlockUpsample2(x)
-        x = self.ChannelModulator4(x)
+        x = self.ChannelModulator4(x, level, alpha)
         x = self.ResidualBlock3(x)
         x = self.subpel_conv0(x)
         return x
@@ -118,6 +135,24 @@ class Dec_ModulatedAtt(Dec_baseline):
         super().__init__()
         self.AttentionBlock0 = ModulatedAttentionBlock(N, levels)
         self.AttentionBlock1 = ModulatedAttentionBlock(N, levels)
+
+    def forward(self, x, level, alpha):
+        x = self.AttentionBlock0(x, level, alpha)
+        x = self.ResidualBlock0(x)
+        x = self.ChannelModulator0(x, level, alpha)
+        x = self.ResidualBlockUpsample0(x)
+        x = self.ChannelModulator1(x, level, alpha)
+        x = self.ResidualBlock1(x)
+        x = self.ChannelModulator2(x, level, alpha)
+        x = self.ResidualBlockUpsample1(x)
+        x = self.AttentionBlock1(x, level, alpha)
+        x = self.ResidualBlock2(x)
+        x = self.ChannelModulator3(x, level, alpha)
+        x = self.ResidualBlockUpsample2(x)
+        x = self.ChannelModulator4(x, level, alpha)
+        x = self.ResidualBlock3(x)
+        x = self.subpel_conv0(x)
+        return x
 
 
 MSE_LMBDA = [0.0016, 0.0027, 0.0045, 0.0077, 0.0130, 0.0219, 0.0371, 0.0628, 0.1063, 0.1800]
@@ -244,8 +279,8 @@ class cheng2020_baseline_woGMM(CompressionModel):
         return net
 
 
-    def forward(self, x):
-        y = self.g_a(x)
+    def forward(self, x, level, alpha):
+        y = self.g_a(x, level, alpha)
         z = self.h_a(y)
         z_hat, z_likelihoods = self.entropy_bottleneck(z)
         hyper_params = self.h_s(z_hat)
@@ -259,7 +294,7 @@ class cheng2020_baseline_woGMM(CompressionModel):
         )
         scales_hat, means_hat = gaussian_params.chunk(2, 1)
         _, y_likelihoods = self.gaussian_conditional(y, scales_hat, means=means_hat)
-        x_hat = self.g_s(y_hat)
+        x_hat = self.g_s(y_hat, level, alpha)
 
         return {
             "x_hat": x_hat,

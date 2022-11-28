@@ -51,28 +51,37 @@ class ModulatedAttentionBlock(nn.Module):
                 out = self.relu(out)
                 return out
 
-        self.conv_a = nn.Sequential(
-            ResidualUnit(), 
-            ChannelModulator(N, levels),
-            ResidualUnit(), 
-            ChannelModulator(N, levels),
-            ResidualUnit()
-            )
+        self.conv_a_RB0 = ResidualUnit()
+        self.conv_a_Modulator0 = ChannelModulator(N, levels)
+        self.conv_a_RB1 = ResidualUnit()
+        self.conv_a_Modulator1 = ChannelModulator(N, levels)
+        self.conv_a_RB2 = ResidualUnit()
 
-        self.conv_b = nn.Sequential(
-            ResidualUnit(),
-            ChannelModulator(N, levels),
-            ResidualUnit(),
-            ChannelModulator(N, levels),
-            ResidualUnit(),
-            ChannelModulator(N, levels),
-            conv1x1(N, N),
-        )
+        self.conv_b_RB0 = ResidualUnit()
+        self.conv_b_Modulator0 = ChannelModulator(N, levels)
+        self.conv_b_RB1 = ResidualUnit()
+        self.conv_b_Modulator1 = ChannelModulator(N, levels)
+        self.conv_b_RB2 = ResidualUnit()
+        self.conv_b_Modulator2 = ChannelModulator(N, levels)
+        self.conv_b_conv0 = conv1x1(N, N)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, level, alpha) -> Tensor:
         identity = x
-        a = self.conv_a(x)
-        b = self.conv_b(x)
+
+        a = self.conv_a_RB0(x)
+        a = self.conv_a_Modulator0(a, level, alpha)
+        a = self.conv_a_RB1(a)
+        a = self.conv_a_Modulator1(a, level, alpha)
+        a = self.conv_a_RB2(a)
+
+        b = self.conv_b_RB0(x)
+        b = self.conv_b_Modulator0(b, level, alpha)
+        b = self.conv_b_RB1(b)
+        b = self.conv_b_Modulator1(b, level, alpha)
+        b = self.conv_b_RB2(b)
+        b = self.conv_b_Modulator2(b, level, alpha)
+        b = self.conv_b_conv0(b)
+
         out = a * torch.sigmoid(b)
         out += identity
         return out

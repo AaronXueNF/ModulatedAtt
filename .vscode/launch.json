@@ -11,6 +11,24 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true
-        }
+        },
+        {
+            "name": "train_baseline_mse",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "args": ["./hyperparam/train_baseline_mse.json"],
+            "justMyCode": true
+        },
+        {
+            "name": "train_modulatedAtt_mse",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "args": ["./hyperparam/train_modulatedAtt_mse.json"],
+            "justMyCode": true
+        },
     ]
 }

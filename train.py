@@ -53,19 +53,13 @@ def val_epoch(net, criterion, val_loader, tensorboard_writer, epoch):
                 rd_loss.update(out_criterion["loss"].item())
                 r_loss.update(out_criterion["R_loss"].item())
                 d_loss.update(out_criterion["D_loss"].item())
-                aux_loss.update(net.aux_Loss().item())
+                aux_loss.update(net.aux_loss().item())
 
     # tensorboard
     tensorboard_writer.add_scalar('Val_rd_loss', rd_loss.avg, epoch)
     tensorboard_writer.add_scalar('Val_r_loss', r_loss.avg, epoch)
     tensorboard_writer.add_scalar('Val_d_loss', d_loss.avg, epoch)
     tensorboard_writer.add_scalar('Val_aux_loss', aux_loss.avg, epoch)
-
-    print(
-        f"[Evaluating] epoch {epoch:3}: "
-        f"RD Loss: {rd_loss.avg:.4f} | R loss: {r_loss.avg:.4f} | "
-        f"D Loss: {d_loss.avg:.4f} | Aux loss: {aux_loss.avg:.4f}"
-    )
 
     return rd_loss.avg, r_loss.avg, d_loss.avg, aux_loss.avg
 
@@ -128,9 +122,16 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
             )
 
         # evaluation and save model
-        if batch % val_interval == 0:
+        # if not add 1, when len(dataloader) % 2 == 0, only run 1 times when interval = 2
+        if batch and (batch + 1) % val_interval == 0: 
             val_rd, val_r, val_d, val_aux = val_epoch(
                 net, criterion, val_loader, tensorboard_writer, epoch)
+
+            print(
+                f"[Evaluating] epoch {epoch:3}: "
+                f"RD Loss: {val_rd:.4f} | R loss: {val_r:.4f} | "
+                f"D Loss: {val_d:.4f} | Aux loss: {val_aux:.4f}"
+            )
 
             state = {'epoch': epoch,
                     'iterations': iteration,
@@ -145,11 +146,13 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
             if val_rd < best_val_loss:
                 best_val_loss = val_rd
                 torch.save(state, args["best_checkpoint"])
+    
+            # adjust lr according to iteration
+            if epoch >= args["lr_down_afterEpoch"]:
+                lr_scheduler.step(val_rd)
+            aux_lr_scheduler.step(val_aux)
 
-        # adjust lr according to iteration
-        if epoch >= args["lr_down_afterEpoch"]:
-            lr_scheduler.step(val_rd)
-        aux_lr_scheduler.step(val_aux)
+            net.train()
 
         iteration += 1
     
@@ -170,7 +173,7 @@ def main(args):
 
     # define dataloader
     train_data = Datasets(args["train_set"], 256, train=True)      # load dataset and create data loader
-    train_dataloader = torch.utils.data.DataLoader(train_data,
+    train_dataloader = torch.utils.data.DataLoader(train_data, num_workers=8,
                                                    batch_size=args["batch_size"], shuffle=True)
 
     val_data = Datasets(args["val_set"], 512, train=False)
@@ -199,9 +202,9 @@ def main(args):
 
     # load model and continue training
     if args["continue_training"]:
-        checkpoint = torch.load(args["checkpoint"], map_location=args["device"])
-        last_epoch = checkpoint['last_epoch'] + 1
-        last_iterations = checkpoint['last_iterations'] + 1
+        checkpoint = torch.load(args["current_checkpoint"], map_location=args["device"])
+        last_epoch = checkpoint['epoch'] + 1
+        last_iterations = checkpoint['iterations'] + 1
         best_val_loss = checkpoint['best_val_loss']
         net.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
@@ -215,7 +218,7 @@ def main(args):
         best_val_loss = 999999.0
         print(f"[Preparing] start new training.")
 
-    print(f"[Training] Start from epoch {last_epoch}, iterations {last_iterations} !")
+    print(f"[Training] Start from epoch {last_epoch}, iterations {last_iterations}")
     data_loaders = (train_dataloader, val_dataloader)
     optimizers = (optimizer, aux_optimizer)
     schedulers = (lr_scheduler, aux_lr_scheduler)
@@ -230,7 +233,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = parse_json_param(sys.argv[1] if len(sys.argv) - 1 else "./hyperparam/train_baseline.json")
+    args = parse_json_param(sys.argv[1] if len(sys.argv) - 1 else "")
 
     global_start_time = time.time()
     main(args)
