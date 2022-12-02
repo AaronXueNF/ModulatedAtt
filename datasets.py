@@ -53,12 +53,11 @@ class Datasets(Dataset):
 
 if __name__ == "__main__":
     print("hello")
-    train_coco = Datasets("/workspace/compression/DataSets/MSCOCO/train2017")
-    train_loader_coco = torch.utils.data.DataLoader(train_coco, batch_size=8, shuffle=True)
+    train_coco = Datasets("/home/DataSets/MSCOCO/train2017")
+    train_loader_coco = torch.utils.data.DataLoader(train_coco, num_workers=24,
+            batch_size=128, shuffle=True)
 
     print(len(train_loader_coco))
 
-    # for imgs in train_loader_coco:
-    #     imgs = imgs.cuda()
-    #     print(imgs.shape)
-    #     break
+    for imgs in train_loader_coco:
+        imgs = imgs.cuda()

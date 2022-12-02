@@ -33,39 +33,57 @@ def val_epoch(net, criterion, val_loader, tensorboard_writer, epoch):
     net.eval()  # Set model to training mode
     device = next(net.parameters()).device
 
-    rd_loss = AverageMeter()
-    r_loss = AverageMeter()
-    d_loss = AverageMeter()
-    aux_loss = AverageMeter()
+    rd_loss_all = AverageMeter()
+    r_loss_all = AverageMeter()
+    d_loss_all = AverageMeter()
+    aux_loss_all = AverageMeter()
+
+    lmbda_list = []
+    rd_loss_list = []
+    r_loss_list = []
+    d_loss_list = []
 
     with torch.no_grad():
-        # loop over all images
-        for img in val_loader:
-
-            # loop over all lambdas
-            for level, alpha in iter(net.train_qualities):
-                lmbda = alpha * net.lmbda[level] + (1 - alpha) * net.lmbda[level + 1]
-
+        # loop over all lambdas
+        for level, alpha in iter(net.train_qualities):
+            lmbda = alpha * net.lmbda[level] + (1 - alpha) * net.lmbda[level + 1]
+            rd_loss_this = AverageMeter()
+            r_loss_this = AverageMeter()
+            d_loss_this = AverageMeter()
+            # loop over all images
+            for img in val_loader:
                 img = img.to(device)
                 out_net = net(img, level, alpha)
                 out_criterion = criterion(out_net, img, lmbda)
 
-                rd_loss.update(out_criterion["loss"].item())
-                r_loss.update(out_criterion["R_loss"].item())
-                d_loss.update(out_criterion["D_loss"].item())
-                aux_loss.update(net.aux_loss().item())
+                rd_loss_this.update(out_criterion["loss"].item())
+                r_loss_this.update(out_criterion["R_loss"].item())
+                d_loss_this.update(out_criterion["D_loss"].item())
+                aux_loss_all.update(net.aux_loss().item())
+            
+            lmbda_list.append(lmbda)
+            rd_loss_list.append(rd_loss_this.avg)
+            r_loss_list.append(r_loss_this.avg)
+            d_loss_list.append(d_loss_this.avg)
+            
+            rd_loss_all.update(rd_loss_list[-1])
+            r_loss_all.update(r_loss_list[-1])
+            d_loss_all.update(d_loss_list[-1])
 
     # tensorboard
-    tensorboard_writer.add_scalar('Val_rd_loss', rd_loss.avg, epoch)
-    tensorboard_writer.add_scalar('Val_r_loss', r_loss.avg, epoch)
-    tensorboard_writer.add_scalar('Val_d_loss', d_loss.avg, epoch)
-    tensorboard_writer.add_scalar('Val_aux_loss', aux_loss.avg, epoch)
+    tensorboard_writer.add_scalar('Val_rd_loss', rd_loss_all.avg, epoch)
+    tensorboard_writer.add_scalar('Val_r_loss', r_loss_all.avg, epoch)
+    tensorboard_writer.add_scalar('Val_d_loss', d_loss_all.avg, epoch)
+    tensorboard_writer.add_scalar('Val_aux_loss', aux_loss_all.avg, epoch)
 
-    return rd_loss.avg, r_loss.avg, d_loss.avg, aux_loss.avg
+    quality_pd = pd.DataFrame([rd_loss_list, r_loss_list, d_loss_list], 
+                    index=['rd_loss', 'r_loss', 'd_loss'], columns=lmbda_list)
+
+    return rd_loss_all.avg, r_loss_all.avg, d_loss_all.avg, aux_loss_all.avg, quality_pd
 
 
 def train_epoch(net, criterion, optimizers, schedulers, data_loaders, 
-                best_val_loss, epoch, iteration, tensorboard_writer, args):
+                best_val_loss, epoch, tensorboard_writer, args):
     """
     Train model for one epoch
     """
@@ -76,7 +94,7 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
     lr = optimizer.param_groups[0]['lr']
     aux_lr = aux_optimizer.param_groups[0]['lr']
     device = next(net.parameters()).device
-    print(f"[training] In epoch {epoch}, Learning rate: {lr}")
+    print(f"[training] In epoch {epoch}, lr: {lr}, Aux lr: {aux_lr}")
 
     rd_loss_avg = AverageMeter()
     aux_loss_avg = AverageMeter()
@@ -123,18 +141,12 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
 
         # evaluation and save model
         # if not add 1, when len(dataloader) % 2 == 0, only run 1 times when interval = 2
+        # if batch % val_interval == 0:     # only for debug
         if batch and (batch + 1) % val_interval == 0: 
-            val_rd, val_r, val_d, val_aux = val_epoch(
+            val_rd, val_r, val_d, val_aux, quality_pd= val_epoch(
                 net, criterion, val_loader, tensorboard_writer, epoch)
 
-            print(
-                f"[Evaluating] epoch {epoch:3}: "
-                f"RD Loss: {val_rd:.4f} | R loss: {val_r:.4f} | "
-                f"D Loss: {val_d:.4f} | Aux loss: {val_aux:.4f}"
-            )
-
             state = {'epoch': epoch,
-                    'iterations': iteration,
                     'state_dict': net.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'lr_scheduler': lr_scheduler.state_dict(),
@@ -144,6 +156,7 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
             torch.save(state, args["current_checkpoint"])
             
             if val_rd < best_val_loss:
+                print("[Evaluating] update best loss and save best model...")
                 best_val_loss = val_rd
                 torch.save(state, args["best_checkpoint"])
     
@@ -152,9 +165,15 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
                 lr_scheduler.step(val_rd)
             aux_lr_scheduler.step(val_aux)
 
-            net.train()
+            print(
+                f"[Evaluating] epoch {epoch:3}: "
+                f"RD Loss: {val_rd:.4f} | best RD loss: {best_val_loss:.4f} | "
+                f"R loss: {val_r:.4f} | D Loss: {val_d:.4f} | Aux loss: {val_aux:.4f}\n"
+                f"[Evaluating] detailed RD performance:"
+            )
+            print(quality_pd)
 
-        iteration += 1
+            net.train()
     
     # tensorboard
     tensorboard_writer.add_scalar('Train_rd_loss', rd_loss_avg.avg, epoch)
@@ -162,7 +181,7 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
     tensorboard_writer.add_scalar("lr", lr, epoch)
     tensorboard_writer.add_scalar("aux_lr", aux_lr, epoch)
 
-    return rd_loss_avg.avg, iteration
+    return rd_loss_avg.avg, best_val_loss
 
 
 def main(args):
@@ -202,31 +221,30 @@ def main(args):
 
     # load model and continue training
     if args["continue_training"]:
-        checkpoint = torch.load(args["current_checkpoint"], map_location=args["device"])
-        last_epoch = checkpoint['epoch'] + 1
-        last_iterations = checkpoint['iterations'] + 1
+        checkpoint = torch.load(args["continue_checkpoint"], map_location=args["device"])
+        last_epoch = checkpoint['epoch']
         best_val_loss = checkpoint['best_val_loss']
         net.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
         lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-        aux_optimizer.load_state_dict(checkpoint['aux_optimizer'])
         aux_lr_scheduler.load_state_dict(checkpoint["aux_lr_scheduler"])
         print(f"[Preparing] Load last model and continue training.")
+        if args["continue_optimizer"]:
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            aux_optimizer.load_state_dict(checkpoint['aux_optimizer'])
     else:
         last_epoch = 0
-        last_iterations = 0
         best_val_loss = 999999.0
         print(f"[Preparing] start new training.")
 
-    print(f"[Training] Start from epoch {last_epoch}, iterations {last_iterations}")
+    print(f"[Training] Start from epoch {last_epoch}")
     data_loaders = (train_dataloader, val_dataloader)
     optimizers = (optimizer, aux_optimizer)
     schedulers = (lr_scheduler, aux_lr_scheduler)
 
     for epoch in range(last_epoch, args["epochs"]):
-        train_loss, last_iterations = train_epoch(
+        train_loss, best_val_loss = train_epoch(
             net, criterion, optimizers, schedulers, data_loaders, 
-            best_val_loss, epoch, last_iterations, tensorboard_writer, args
+            best_val_loss, epoch, tensorboard_writer, args
         )
 
     tensorboard_writer.close()

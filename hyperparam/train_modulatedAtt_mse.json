@@ -4,11 +4,11 @@
   "epochs": 100,
   "batch_size": 8,
 
-  "lr_init": 1e-4,
-  "lr_aux_init": 1e-4,
+  "lr_init": 2e-5,
+  "lr_aux_init": 2e-5,
   "lr_down_factor": 0.5,
   "lr_down_patience": 10,
-  "lr_down_afterEpoch": 10,
+  "lr_down_afterEpoch": 0,
   "val_per_epoch": 2,
 
   "grd_clip": 5,
@@ -19,10 +19,13 @@
   "val_set": "/home/DataSets/Kodak",
 
   "continue_training": true,
+  "continue_optimizer": false,
+  "continue_checkpoint": "./checkpoints/cheng2020_modulatedAtt.ckpt",
+
   "current_checkpoint": "./checkpoints/cheng2020_modulatedAtt.ckpt",
   "best_checkpoint": "./checkpoints/best_cheng2020_modulatedAtt.ckpt",
   "summary": "./summary/cheng2020_modulatedAtt_tensorboard",
 
-  "use_pretrain": true,
+  "use_pretrain": false,
   "pretrain_checkpoint": "./checkpoints/pretrain/modulatedAtt_pretrain.ckpt"
 }
