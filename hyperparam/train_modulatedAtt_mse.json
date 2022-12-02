@@ -19,7 +19,7 @@
   "val_set": "/home/DataSets/Kodak",
 
   "continue_training": true,
-  "continue_optimizer": false,
+  "continue_optimizer": true,
   "continue_checkpoint": "./checkpoints/cheng2020_modulatedAtt.ckpt",
 
   "current_checkpoint": "./checkpoints/cheng2020_modulatedAtt.ckpt",
