@@ -1,0 +1,39 @@
+{
+  "net": "cheng2020_AdaptScaleMAtt_woGMM",
+  "metric": "mse",
+  "epochs": 120,
+  "batch_size": 8,
+
+  "lr_init": 1e-4,
+  "lr_down_factor": 0.5,
+  "lr_down_patience": 20,
+  "lr_down_afterEpoch": 30,
+  "lr_aux_init": 1e-3,
+  "lr_aux_down_factor": 0.2,
+  "lr_aux_down_patience": 20,
+  "lr_aux_down_afterEpoch": 30,
+  "val_per_epoch": 2,
+
+  "grd_clip": 5,
+  "seed": null,
+  "device": "cuda:0",
+  
+  "train_set": "/home/DataSets/MSCOCO/train2017",
+  "val_set": "/home/DataSets/Kodak",
+
+  "skip_invalid_loss": true,
+  "debug": false,
+  "debug_img": "./checkpoints/cheng2020_AdaScaleMAtt_bug_img.pt",
+  "debug_checkpoint": "./checkpoints/cheng2020_AdaScaleMAtt_bug.ckpt",
+
+  "continue_training": true,
+  "continue_optimizer": true,
+  "continue_checkpoint": "./checkpoints/best_cheng2020_AdaScaleMAtt.ckpt",
+
+  "current_checkpoint": "./checkpoints/cheng2020_AdaScaleMAtt.ckpt",
+  "best_checkpoint": "./checkpoints/best_cheng2020_AdaScaleMAtt.ckpt",
+  "summary": "./summary/cheng2020_AdaScaleMAtt_tensorboard",
+
+  "use_pretrain": false,
+  "pretrain_checkpoint": "./checkpoints/pretrain/AdaScaleMAtt_pretrain.ckpt"
+}

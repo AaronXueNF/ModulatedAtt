@@ -1,0 +1,12 @@
+{
+  "net": "cheng2020_ModulatedAtt_woGMM",
+  "metric": "mse",
+  "device": "cuda:0",
+  
+  "adapt_loader": true,
+  "test_set": "/home/DataSets/CLIC2020_professional_test",
+  "test_checkpoint": "./checkpoints/from_sever/best_cheng2020_modulatedAtt.ckpt",
+  "rd_out": "./results/clic2020/cheng2020_modulatedAtt_woGMM_320.csv",
+
+  "rc_out": "./results/clic2020/cheng2020_modulatedAtt_woGMM_320_rc.csv"
+}

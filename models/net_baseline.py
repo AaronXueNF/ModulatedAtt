@@ -22,10 +22,10 @@ from compressai.layers import (
 
 # from models.entropy import GaussianMixtureConditional
 
-from compressai.models.utils import conv, deconv, update_registered_buffers
+from compressai.models.utils import conv, deconv, update_registered_buffers, quantize_ste
 
 from models.modulator import ChannelModulator 
-from models.modulated_Att import ModulatedAttentionBlock
+from models.modulated_Att import MAttBlock
 from models.entropy import CompressionModel
 from models.utils_model import (
     load_pretrain_to_new_baseline, 
@@ -34,7 +34,7 @@ from models.utils_model import (
 
 
 class Enc_baseline(nn.Module):
-    def __init__(self, N=192, levels=10, **kwargs):
+    def __init__(self, N, M, levels, **kwargs):
         super().__init__()
         self.ResidualBlockWithStride0 = ResidualBlockWithStride(3, N, stride=2)
         self.ChannelModulator0 =  ChannelModulator(N, levels)
@@ -48,8 +48,8 @@ class Enc_baseline(nn.Module):
         self.ChannelModulator3 =  ChannelModulator(N, levels)
         self.ResidualBlock2 = ResidualBlock(N, N)
         self.ChannelModulator4 =  ChannelModulator(N, levels)
-        self.conv0 = conv3x3(N, N, stride=2)
-        self.AttentionBlock1 = AttentionBlock(N)
+        self.conv0 = conv3x3(N, M, stride=2)
+        self.AttentionBlock1 = AttentionBlock(M)
     
     def forward(self, x, level, alpha):
         x = self.ResidualBlockWithStride0(x)
@@ -68,37 +68,14 @@ class Enc_baseline(nn.Module):
         x = self.AttentionBlock1(x)
         return x
 
-class Enc_ModulatedAtt(Enc_baseline):
-    def __init__(self, N=192, levels=10, **kwargs):
-        super().__init__()
-        self.AttentionBlock0 = ModulatedAttentionBlock(N, levels)
-        self.AttentionBlock1 = ModulatedAttentionBlock(N, levels)
-    
-    def forward(self, x, level, alpha):
-        x = self.ResidualBlockWithStride0(x)
-        x = self.ChannelModulator0(x, level, alpha)
-        x = self.ResidualBlock0(x)
-        x = self.ChannelModulator1(x, level, alpha)
-        x = self.ResidualBlockWithStride1(x)
-        x = self.AttentionBlock0(x, level, alpha)
-        x = self.ResidualBlock1(x)
-        x = self.ChannelModulator2(x, level, alpha)
-        x = self.ResidualBlockWithStride2(x)
-        x = self.ChannelModulator3(x, level, alpha)
-        x = self.ResidualBlock2(x)
-        x = self.ChannelModulator4(x, level, alpha)
-        x = self.conv0(x)
-        x = self.AttentionBlock1(x, level, alpha)
-        return x
-
 
 class Dec_baseline(nn.Module):
-    def __init__(self, N=192, levels=10, **kwargs):
+    def __init__(self, N, M, levels, **kwargs):
         super().__init__()
-        self.AttentionBlock0 = AttentionBlock(N)
-        self.ResidualBlock0 = ResidualBlock(N, N)
-        self.ChannelModulator0 = ChannelModulator(N, levels)
-        self.ResidualBlockUpsample0 = ResidualBlockUpsample(N, N, 2)
+        self.AttentionBlock0 = AttentionBlock(M)
+        self.ResidualBlock0 = ResidualBlock(M, M)
+        self.ChannelModulator0 = ChannelModulator(M, levels)
+        self.ResidualBlockUpsample0 = ResidualBlockUpsample(M, N, 2)
         self.ChannelModulator1 =ChannelModulator(N, levels)
         self.ResidualBlock1 = ResidualBlock(N, N)
         self.ChannelModulator2 = ChannelModulator(N, levels)
@@ -130,31 +107,6 @@ class Dec_baseline(nn.Module):
         return x
 
 
-class Dec_ModulatedAtt(Dec_baseline):
-    def __init__(self, N=192, levels=10, **kwargs):
-        super().__init__()
-        self.AttentionBlock0 = ModulatedAttentionBlock(N, levels)
-        self.AttentionBlock1 = ModulatedAttentionBlock(N, levels)
-
-    def forward(self, x, level, alpha):
-        x = self.AttentionBlock0(x, level, alpha)
-        x = self.ResidualBlock0(x)
-        x = self.ChannelModulator0(x, level, alpha)
-        x = self.ResidualBlockUpsample0(x)
-        x = self.ChannelModulator1(x, level, alpha)
-        x = self.ResidualBlock1(x)
-        x = self.ChannelModulator2(x, level, alpha)
-        x = self.ResidualBlockUpsample1(x)
-        x = self.AttentionBlock1(x, level, alpha)
-        x = self.ResidualBlock2(x)
-        x = self.ChannelModulator3(x, level, alpha)
-        x = self.ResidualBlockUpsample2(x)
-        x = self.ChannelModulator4(x, level, alpha)
-        x = self.ResidualBlock3(x)
-        x = self.subpel_conv0(x)
-        return x
-
-
 MSE_LMBDA = [0.0016, 0.0027, 0.0045, 0.0077, 0.0130, 0.0219, 0.0371, 0.0628, 0.1063, 0.1800]
 MS_SSIM_LMBDA = [2.11, 3.54, 5.93, 9.93, 16.64, 27.88, 46.73, 78.32, 131.26, 219.98]
 
@@ -172,8 +124,8 @@ class cheng2020_baseline_woGMM(CompressionModel):
         N (int): Number of channels
     """
 
-    def __init__(self, metric='mse', N=192, **kwargs):
-        super().__init__(entropy_bottleneck_channels=N, **kwargs)
+    def __init__(self, metric='mse', N=256, M=320, **kwargs):
+        super().__init__(entropy_bottleneck_channels=M, **kwargs)
 
         # define real lambda values according to distortion metric
         if metric.lower() == 'mse':
@@ -186,50 +138,51 @@ class cheng2020_baseline_woGMM(CompressionModel):
         
         # define modules
         self.N = int(N)
-        self.g_a = Enc_baseline(N, levels)
-        self.g_s = Dec_baseline(N, levels)
+        self.M = int(M)
+        self.g_a = Enc_baseline(N, M, levels)
+        self.g_s = Dec_baseline(N, M, levels)
 
         self.h_a = nn.Sequential(
-            conv3x3(N, N),
+            conv3x3(M, M),
             nn.LeakyReLU(inplace=True),
-            conv3x3(N, N),
+            conv3x3(M, M),
             nn.LeakyReLU(inplace=True),
-            conv3x3(N, N, stride=2),
+            conv3x3(M, M, stride=2),
             nn.LeakyReLU(inplace=True),
-            conv3x3(N, N),
+            conv3x3(M, M),
             nn.LeakyReLU(inplace=True),
-            conv3x3(N, N, stride=2),
+            conv3x3(M, M, stride=2),
         )
 
         self.h_s = nn.Sequential(
-            conv3x3(N, N),
+            conv3x3(M, M),
             nn.LeakyReLU(inplace=True),
-            subpel_conv3x3(N, N, 2),
+            subpel_conv3x3(M, M, 2),
             nn.LeakyReLU(inplace=True),
-            conv3x3(N, N * 3 // 2),
+            conv3x3(M, M * 3 // 2),
             nn.LeakyReLU(inplace=True),
-            subpel_conv3x3(N * 3 // 2, N * 3 // 2, 2),
+            subpel_conv3x3(M * 3 // 2, M * 3 // 2, 2),
             nn.LeakyReLU(inplace=True),
-            conv3x3(N * 3 // 2, N * 2),
+            conv3x3(M * 3 // 2, M * 2),
         )
 
         self.context_prediction = MaskedConv2d(
-            N, 2 * N, kernel_size=5, padding=2, stride=1
+            M, 2 * M, kernel_size=5, padding=2, stride=1
         )
 
         self.entropy_parameters = nn.Sequential(
-            nn.Conv2d(N * 12 // 3, N * 10 // 3, 1),
+            nn.Conv2d(M * 12 // 3, M * 10 // 3, 1),
             nn.LeakyReLU(inplace=True),
-            nn.Conv2d(N * 10 // 3, N * 8 // 3, 1),
+            nn.Conv2d(M * 10 // 3, M * 8 // 3, 1),
             nn.LeakyReLU(inplace=True),
-            nn.Conv2d(N * 8 // 3, N * 6 // 3, 1),
+            nn.Conv2d(M * 8 // 3, M * 6 // 3, 1),
         )
 
         self.gaussian_conditional = GaussianConditional(None)
 
         # training quality def
         alphas_train = [1.0, 0.5]
-        levels_train = range(len(self.lmbda) - 1)
+        levels_train = range(levels - 1)
 
         self.train_qualities = [(i, j) for i in levels_train for j in alphas_train ]
         self.train_qualities += [(len(self.lmbda) - 2, 0.0)]
@@ -285,9 +238,12 @@ class cheng2020_baseline_woGMM(CompressionModel):
         z_hat, z_likelihoods = self.entropy_bottleneck(z)
         hyper_params = self.h_s(z_hat)
 
-        y_hat = self.gaussian_conditional.quantize(
-            y, "noise" if self.training else "dequantize"
-        )
+        # y_hat = self.gaussian_conditional.quantize(
+        #     y, "noise" if self.training else "dequantize"
+        # )
+        y_hat = quantize_ste(y) if self.training else \
+            self.gaussian_conditional.quantize(y, "dequantize")
+        
         ctx_params = self.context_prediction(y_hat)
         gaussian_params = self.entropy_parameters(
             torch.cat((hyper_params, ctx_params), dim=1)
@@ -471,44 +427,3 @@ class cheng2020_baseline_woGMM(CompressionModel):
                 wp = w + padding
                 y_hat[:, :, hp : hp + 1, wp : wp + 1] = rv  # 将重建的y填回去
 
-
-
-class cheng2020_ModulatedAtt_woGMM(cheng2020_baseline_woGMM):
-    def __init__(self, metric='mse', N=192, **kwargs):
-        super().__init__(N=N, **kwargs)
-        # define real lambda values according to distortion metric
-        if metric.lower() == 'mse':
-            self.lmbda = MSE_LMBDA
-        elif metric.lower() == 'ms-ssim':
-            self.lmbda = MS_SSIM_LMBDA
-        else:
-            raise NameError("Invalid distortion metric!")
-        self.levels = levels = len(self.lmbda)
-
-        self.g_a = Enc_ModulatedAtt(N, levels)
-        self.g_s = Dec_ModulatedAtt(N, levels)
-
-    def load_state_dict_pretrain(self, pretrain_state_dict, **kwargs):
-        # load state dict from pretrained model in compressai
-        update_registered_buffers(
-            self.gaussian_conditional,
-            "gaussian_conditional",
-            ["_quantized_cdf", "_offset", "_cdf_length", "scale_table"],
-            pretrain_state_dict,
-        )
-        load_pretrain_to_new_matt(pretrain_state_dict, self.g_a, self.g_s)
-        super().load_state_dict(pretrain_state_dict, **kwargs)
-
-
-def find_net(name):
-    if name == "cheng2020_baseline_woGMM":
-        return cheng2020_baseline_woGMM
-    elif name == "cheng2020_ModulatedAtt_woGMM":
-        return cheng2020_ModulatedAtt_woGMM
-    else:
-        raise NotImplementedError
-
-
-if __name__ == '__main__':
-    net = cheng2020_baseline_woGMM()
-    net.update()

@@ -18,7 +18,7 @@
             "request": "launch",
             "program": "train.py",
             "console": "integratedTerminal",
-            "args": ["./hyperparam/train_baseline_mse.json"],
+            "args": ["--json_args", "./hyperparam/train_baseline_mse.json"],
             "justMyCode": true
         },
         {
@@ -27,7 +27,43 @@
             "request": "launch",
             "program": "train.py",
             "console": "integratedTerminal",
-            "args": ["./hyperparam/train_modulatedAtt_mse.json"],
+            "args": ["--json_args", "./hyperparam/train_modulatedAtt_mse.json"],
+            "justMyCode": true
+        },
+        {
+            "name": "train_AdaptAtt_mse",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "args": ["--json_args", "./hyperparam/train_AdaptAtt_mse.json"],
+            "justMyCode": true
+        },
+        {
+            "name": "train_AdaScaleMAtt_mse",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "args": ["--json_args", "./hyperparam/train_AdaScaleMAtt_mse.json"],
+            "justMyCode": true
+        },
+        {
+            "name": "test_Kodak",
+            "type": "python",
+            "request": "launch",
+            "program": "test.py",
+            "console": "integratedTerminal",
+            "args": ["./hyperparam/test_Kodak.json"],
+            "justMyCode": true
+        },
+        {
+            "name": "test_clic",
+            "type": "python",
+            "request": "launch",
+            "program": "test.py",
+            "console": "integratedTerminal",
+            "args": ["./hyperparam/test_clic2020.json"],
             "justMyCode": true
         },
     ]

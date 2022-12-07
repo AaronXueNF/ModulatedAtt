@@ -12,6 +12,7 @@ import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import torch.distributed as dist
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -20,10 +21,14 @@ from models.find_net import find_net
 from models.rate_distortion import RateDistortionLoss
 from datasets import Datasets
 from utils import AverageMeter, parse_json_param, concat_images
-from utils import configure_optimizers, adjust_lr, clip_gradient
+from utils import configure_optimizers, adjust_lr
 
 print_interval = 500
 output_interval = 2000
+
+# define multi gpus
+gpus = [0, 1]
+torch.cuda.set_device('cuda:{}'.format(gpus[0]))
 
 
 def val_epoch(net, criterion, val_loader, tensorboard_writer, epoch):
@@ -52,7 +57,7 @@ def val_epoch(net, criterion, val_loader, tensorboard_writer, epoch):
             d_loss_this = AverageMeter()
             # loop over all images
             for img in val_loader:
-                img = img.to(device)
+                img = img.cuda(non_blocking=True)
                 out_net = net(img, level, alpha)
                 out_criterion = criterion(out_net, img, lmbda)
 
@@ -106,7 +111,7 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
     net.train()  # Set model to training mode   
     for batch, inputs in enumerate(train_loader):
         start_time = time.time()
-        inputs = inputs.to(device)
+        inputs = inputs.cuda(non_blocking=True)
 
         optimizer.zero_grad()
         aux_optimizer.zero_grad()
@@ -116,33 +121,11 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
 
         out = net(inputs, level, alpha)
         out_criterion = criterion(out, inputs, lmbda)
-
-        # debug!
-        if out_criterion["D_loss"] > 1e4 and epoch >= 1:
-            torch.save({'img': inputs, 'level': level, 'alpha': alpha}, args["debug_img"])
-            state = {'epoch': epoch,
-                    'state_dict': net.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'lr_scheduler': lr_scheduler.state_dict(),
-                    'aux_optimizer': aux_optimizer.state_dict(),
-                    'aux_lr_scheduler': aux_lr_scheduler.state_dict(),
-                    'best_val_loss': best_val_loss}
-            torch.save(state, args["debug_checkpoint"])
-            if (args["skip_invalid_loss"]):
-                print(f"[Training] epoch {epoch:3}: [{batch:4}/{len(train_loader):4}] | "
-                      f" !!!WARNING!!! large loss detected, skip this iteration!")
-                continue
-            else:
-                print(f"[Training] epoch {epoch:3}: [{batch:4}/{len(train_loader):4}] | "
-                      f" !!!WARNING!!! large loss detected, need DEBUG!")
-                exit(-114514)
-
         out_criterion["loss"].backward()
 
         # clip gradient and optimize compress net
         if args["grd_clip"] > 0:
             torch.nn.utils.clip_grad_norm_(net.parameters(), args["grd_clip"])
-            clip_gradient(optimizer, args["grd_clip"])
         optimizer.step()
 
         # optimize aux_loss
@@ -189,8 +172,7 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
             # adjust lr according to iteration
             if epoch >= args["lr_down_afterEpoch"]:
                 lr_scheduler.step(val_rd)
-            if epoch >= args["lr_aux_down_afterEpoch"]:
-                aux_lr_scheduler.step(val_aux)
+            aux_lr_scheduler.step(val_aux)
 
             print(
                 f"[Evaluating] epoch {epoch:3}: "
@@ -221,7 +203,7 @@ def main(args):
 
     # define dataloader
     train_data = Datasets(args["train_set"], 256, train=True)      # load dataset and create data loader
-    train_dataloader = torch.utils.data.DataLoader(train_data, num_workers=8,
+    train_dataloader = torch.utils.data.DataLoader(train_data, num_workers=16,
                                                    batch_size=args["batch_size"], shuffle=True)
 
     val_data = Datasets(args["val_set"], 512, train=False)
@@ -230,21 +212,17 @@ def main(args):
 
     # define net
     net_name = args["net"]
-    net = find_net(net_name)(metric=args["metric"]).to(device)
-    print(f"[Preparing] Using Net: {net_name}")
-
-    # define optimizer
+    net = find_net(net_name)(metric=args["metric"])
+    net = nn.DataParallel(net.to(device), device_ids=gpus, output_device=gpus[0]) \
+        if torch.cuda.device_count() > 1 else net.to(device)
+    
     optimizer, aux_optimizer = configure_optimizers(net, args["lr_init"], args["lr_aux_init"])
-
-    # define scheduler
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=args["lr_down_factor"], patience=args["lr_down_patience"], min_lr=1e-6)
     aux_lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        aux_optimizer, mode='min', factor=args["lr_aux_down_factor"], patience=args["lr_aux_down_patience"], min_lr=1e-6)
-        
-    # define RD loss
+        aux_optimizer, mode='min', factor=0.5, patience=10, min_lr=1e-6)
     criterion = RateDistortionLoss(metric=args["metric"])
-
+    print(f"[Preparing] Using Net: {net_name}")
 
     # Tensorboard
     tensorboard_writer = SummaryWriter(args["summary"])
@@ -287,9 +265,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Demo of argparse')
-    parser.add_argument('--json_args', type=str, default="")
-    args = parse_json_param(parser.parse_args().json_args)
+    args = parse_json_param(sys.argv[1] if len(sys.argv) - 1 else "")
 
     global_start_time = time.time()
     main(args)

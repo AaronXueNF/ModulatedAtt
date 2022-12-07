@@ -1,0 +1,12 @@
+{
+  "net": "cheng2020_AdaptMAtt_woGMM",
+  "metric": "mse",
+  "device": "cuda:0",
+  
+  "adapt_loader": false,
+  "test_set": "/home/DataSets/Kodak",
+  "test_checkpoint": "./checkpoints/from_sever/best_cheng2020_AdaptAtt.ckpt",
+  "rd_out": "./results/Kodak/cheng2020_AdaptAtt_woGMM_320.csv",
+
+  "rc_out": "./results/Kodak/cheng2020_AdaptAtt_woGMM_320_rc.csv"
+}

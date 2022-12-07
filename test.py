@@ -16,9 +16,9 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from models.net import find_net
+from models.find_net import find_net
 from models.rate_distortion import RateDistortionLoss
-from datasets import Datasets
+from datasets import Datasets, Datasets_AdaptCrop, Datasets_AdaptPad
 from utils import AverageMeter, parse_json_param, concat_images
 from utils import compute_psnr, compute_msssim, compute_bpp
 
@@ -62,6 +62,7 @@ def test(net, test_loader):
                 ]
 
             print(f"[Testing] finish lambda {lmbda}")
+            print(result.loc[lmbda])
 
     return result
 
@@ -69,7 +70,8 @@ def test(net, test_loader):
 def main(args):
     device = args["device"]
 
-    test_data = Datasets(args["test_set"], 512, train=False)
+    datasets = Datasets_AdaptCrop if args["adapt_loader"] else Datasets
+    test_data = datasets(args["test_set"], 512, train=False) 
     test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=1, shuffle=False)
 
     # define net
@@ -78,7 +80,7 @@ def main(args):
     print(f"[Preparing] Using Net: {net_name}")
 
     # load model
-    checkpoint = torch.load(args["test_checkpoint"], map_location=args["device"])
+    checkpoint = torch.load(args["test_checkpoint"])
     net.load_state_dict(checkpoint['state_dict'])
 
     result_pd = test(net, test_dataloader)
