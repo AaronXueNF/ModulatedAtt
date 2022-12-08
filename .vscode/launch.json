@@ -13,30 +13,12 @@
             "justMyCode": true
         },
         {
-            "name": "train_baseline_mse",
+            "name": "train_mAtt_mse",
             "type": "python",
             "request": "launch",
             "program": "train.py",
             "console": "integratedTerminal",
-            "args": ["--json_args", "./hyperparam/train_baseline_mse.json"],
-            "justMyCode": true
-        },
-        {
-            "name": "train_modulatedAtt_mse",
-            "type": "python",
-            "request": "launch",
-            "program": "train.py",
-            "console": "integratedTerminal",
-            "args": ["--json_args", "./hyperparam/train_modulatedAtt_mse.json"],
-            "justMyCode": true
-        },
-        {
-            "name": "train_AdaptAtt_mse",
-            "type": "python",
-            "request": "launch",
-            "program": "train.py",
-            "console": "integratedTerminal",
-            "args": ["--json_args", "./hyperparam/train_AdaptAtt_mse.json"],
+            "args": ["--json_args", "./hyperparam/train/train_mAtt_mse_192_noise.json"],
             "justMyCode": true
         },
         {
@@ -45,7 +27,7 @@
             "request": "launch",
             "program": "train.py",
             "console": "integratedTerminal",
-            "args": ["--json_args", "./hyperparam/train_AdaScaleMAtt_mse.json"],
+            "args": ["--json_args", "./hyperparam/train/train_AdaScaleMAtt_mse_192_noise.json"],
             "justMyCode": true
         },
         {
@@ -54,7 +36,7 @@
             "request": "launch",
             "program": "test.py",
             "console": "integratedTerminal",
-            "args": ["./hyperparam/test_Kodak.json"],
+            "args": ["./hyperparam/test/test_Kodak.json"],
             "justMyCode": true
         },
         {
@@ -63,7 +45,16 @@
             "request": "launch",
             "program": "test.py",
             "console": "integratedTerminal",
-            "args": ["./hyperparam/test_clic2020.json"],
+            "args": ["./hyperparam/test/test_clic2020.json"],
+            "justMyCode": true
+        },
+        {
+            "name": "compress",
+            "type": "python",
+            "request": "launch",
+            "program": "test_img.py",
+            "console": "integratedTerminal",
+            "args": ["./hyperparam/test/test_img.json"],
             "justMyCode": true
         },
     ]

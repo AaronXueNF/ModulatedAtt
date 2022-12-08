@@ -102,9 +102,9 @@ class cheng2020_ModulatedAtt_woGMM(cheng2020_baseline_woGMM):
         super().__init__(N=N, M=M, **kwargs)
         # define real lambda values according to distortion metric
         if metric.lower() == 'mse':
-            self.lmbda = MSE_LMBDA_NEW
+            self.lmbda = MSE_LMBDA_NEW if N > 192 else MSE_LMBDA
         elif metric.lower() == 'ms-ssim':
-            self.lmbda = MS_SSIM_LMBDA_NEW
+            self.lmbda = MS_SSIM_LMBDA_NEW if N > 192 else MS_SSIM_LMBDA
         else:
             raise NameError("Invalid distortion metric!")
         self.levels = levels = len(self.lmbda)

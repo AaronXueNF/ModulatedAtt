@@ -230,7 +230,8 @@ def main(args):
 
     # define net
     net_name = args["net"]
-    net = find_net(net_name)(metric=args["metric"]).to(device)
+    net = find_net(net_name)(
+        metric=args["metric"], N=args["N"], M=args["M"], grad_proxy=args["grad_proxy"]).to(device)
     print(f"[Preparing] Using Net: {net_name}")
 
     # define optimizer
@@ -267,6 +268,9 @@ def main(args):
         if args["continue_optimizer"]:
             optimizer.load_state_dict(checkpoint['optimizer'])
             aux_optimizer.load_state_dict(checkpoint['aux_optimizer'])
+        if args["clear_best"]:
+            best_val_loss = 999999.0
+            print(f"[Preparing] clear best loss!")
     else:
         last_epoch = 0
         best_val_loss = 999999.0

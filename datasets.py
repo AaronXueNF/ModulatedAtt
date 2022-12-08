@@ -109,6 +109,28 @@ class Datasets_AdaptPad(Dataset):
         return len(self.image_path)
 
 
+class Datasets_withName(Dataset):
+    """
+    Adapt Crop img size with n * 64, only for test RD performance!
+    """
+    def __init__(self, data_dir):
+        self.data_dir = data_dir
+
+        if not os.path.exists(data_dir):
+            raise Exception(f"[!] {self.data_dir} not exitd")
+
+        self.image_path = sorted(glob(os.path.join(self.data_dir, "*.*")))
+        self.to_tensor = transforms.ToTensor()
+
+    def __getitem__(self, item):
+        image_ori = self.image_path[item]
+        image = Image.open(image_ori).convert('RGB')
+        image = self.to_tensor(image)
+        return image, image_ori
+
+    def __len__(self):
+        return len(self.image_path)
+
 
 if __name__ == "__main__":
     print("hello")

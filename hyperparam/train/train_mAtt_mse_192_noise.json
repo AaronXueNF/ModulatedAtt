@@ -1,0 +1,43 @@
+{
+  "net": "cheng2020_ModulatedAtt_woGMM",
+  "N": 192,
+  "M": 192,
+  "grad_proxy": "noise",
+  "metric": "mse",
+  "epochs": 100,
+  "batch_size": 8,
+
+  "lr_init": 1e-4,
+  "lr_down_factor": 0.5,
+  "lr_down_patience": 30,
+  "lr_down_afterEpoch": 30,
+  "lr_aux_init": 1e-3,
+  "lr_aux_down_factor": 0.2,
+  "lr_aux_down_patience": 20,
+  "lr_aux_down_afterEpoch": 30,
+  "val_per_epoch": 2,
+
+  "grd_clip": 5,
+  "seed": null,
+  "device": "cuda:0",
+  
+  "train_set": "/home/DataSets/MSCOCO/train2017",
+  "val_set": "/home/DataSets/Kodak",
+
+  "skip_invalid_loss": true,
+  "debug": false,
+  "debug_img": "./checkpoints/bugs/cheng2020_mAtt_mse_192_noise_bug_img.pt",
+  "debug_checkpoint": "./checkpoints/bugs/cheng2020_mAtt_mse_192_noise_bug.ckpt",
+
+  "continue_training": true,
+  "continue_optimizer": true,
+  "clear_best": false,
+  "continue_checkpoint": "./checkpoints/best_cheng2020_mAtt_mse_192_noise.ckpt",
+
+  "current_checkpoint": "./checkpoints/cheng2020_mAtt_mse_192_noise.ckpt",
+  "best_checkpoint": "./checkpoints/best_cheng2020_mAtt_mse_192_noise.ckpt",
+  "summary": "./summary/cheng2020_modulatedAtt_tensorboard",
+
+  "use_pretrain": false,
+  "pretrain_checkpoint": "./checkpoints/pretrain/modulatedAtt_pretrain.ckpt"
+}

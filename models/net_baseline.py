@@ -124,7 +124,7 @@ class cheng2020_baseline_woGMM(CompressionModel):
         N (int): Number of channels
     """
 
-    def __init__(self, metric='mse', N=256, M=320, **kwargs):
+    def __init__(self, metric='mse', N=192, M=192, grad_proxy='noise', **kwargs):
         super().__init__(entropy_bottleneck_channels=M, **kwargs)
 
         # define real lambda values according to distortion metric
@@ -188,6 +188,8 @@ class cheng2020_baseline_woGMM(CompressionModel):
         self.train_qualities += [(len(self.lmbda) - 2, 0.0)]
         self.train_qualities_cycle = cycle(self.train_qualities)
 
+        self.grad_proxy = grad_proxy.lower()
+
 
     @property
     def downsampling_factor(self) -> int:
@@ -238,12 +240,15 @@ class cheng2020_baseline_woGMM(CompressionModel):
         z_hat, z_likelihoods = self.entropy_bottleneck(z)
         hyper_params = self.h_s(z_hat)
 
-        # y_hat = self.gaussian_conditional.quantize(
-        #     y, "noise" if self.training else "dequantize"
-        # )
-        y_hat = quantize_ste(y) if self.training else \
-            self.gaussian_conditional.quantize(y, "dequantize")
-        
+        # choose use ste or add noise
+        if self.grad_proxy == 'ste':
+            y_hat = quantize_ste(y) if self.training else \
+                self.gaussian_conditional.quantize(y, "dequantize")
+        else:
+            y_hat = self.gaussian_conditional.quantize(
+                y, "noise" if self.training else "dequantize"
+            )
+ 
         ctx_params = self.context_prediction(y_hat)
         gaussian_params = self.entropy_parameters(
             torch.cat((hyper_params, ctx_params), dim=1)
@@ -258,14 +263,14 @@ class cheng2020_baseline_woGMM(CompressionModel):
         }
 
 
-    def compress(self, x):
+    def compress(self, x, level, alpha):
         if next(self.parameters()).device != torch.device("cpu"):
             warnings.warn(
                 "Inference on GPU is not recommended for the autoregressive "
                 "models (the entropy coder is run sequentially on CPU)."
             )
 
-        y = self.g_a(x)
+        y = self.g_a(x, level, alpha)
         z = self.h_a(y)
 
         z_strings = self.entropy_bottleneck.compress(z)     # 完全分解的熵模型，压缩超先验信息
@@ -342,7 +347,7 @@ class cheng2020_baseline_woGMM(CompressionModel):
         return string
 
 
-    def decompress(self, strings, shape):
+    def decompress(self, strings, shape, level, alpha):
         assert isinstance(strings, list) and len(strings) == 2  # 确保输入包含先验、超先验（list长度为2）
 
         if next(self.parameters()).device != torch.device("cpu"):
@@ -383,7 +388,7 @@ class cheng2020_baseline_woGMM(CompressionModel):
             )
 
         y_hat = F.pad(y_hat, (-padding, -padding, -padding, -padding))  # -padding实现裁剪
-        x_hat = self.g_s(y_hat).clamp_(0, 1)
+        x_hat = self.g_s(y_hat, level, alpha).clamp_(0, 1)
         return {"x_hat": x_hat}
 
 

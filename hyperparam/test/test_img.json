@@ -1,0 +1,14 @@
+{
+  "net": "cheng2020_ModulatedAtt_woGMM",
+  "metric": "mse",
+  "device": "cuda:0",
+  
+  "bpp": [],
+  "quality": [],
+  "test_set": "/home/DataSets/Test_Img",
+  "test_checkpoint": "./checkpoints/from_sever/best_cheng2020_modulatedAtt.ckpt",
+
+  "test_recon": "",
+  "bitstream": "",
+  "uselee": "./checkpoints/best_cheng2020_modulatedAtt_192.ckpt"
+}
