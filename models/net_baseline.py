@@ -107,8 +107,16 @@ class Dec_baseline(nn.Module):
         return x
 
 
-MSE_LMBDA = [0.0016, 0.0027, 0.0045, 0.0077, 0.0130, 0.0219, 0.0371, 0.0628, 0.1063, 0.1800]
-MS_SSIM_LMBDA = [2.11, 3.54, 5.93, 9.93, 16.64, 27.88, 46.73, 78.32, 131.26, 219.98]
+MSE_LMBDA_M = [0.0016, 0.0027, 0.0045, 0.0077, 0.0130, 0.0219, 0.0371, 0.0628, 0.1063, 0.1800]
+MS_SSIM_LMBDA_M = [2.11, 3.54, 5.93, 9.93, 16.64, 27.88, 46.73, 78.32, 131.26, 219.98]
+MSE_LMBDA_L = [
+    0.0018, 0.0029, 0.0046, 0.0074, 0.0118, 0.0189,
+    0.0302, 0.0483, 0.0671, 0.0932, 0.1295, 0.1800
+]
+MS_SSIM_LMBDA_L = [
+    2.3997, 3.8053, 6.0342, 9.5687, 15.1734, 24.0610, 
+    38.1544, 60.5027, 83.5481, 115.3713, 159.3160, 219.9991
+]
 
 
 class cheng2020_baseline_woGMM(CompressionModel):
@@ -128,10 +136,11 @@ class cheng2020_baseline_woGMM(CompressionModel):
         super().__init__(entropy_bottleneck_channels=M, **kwargs)
 
         # define real lambda values according to distortion metric
+        assert M >= N
         if metric.lower() == 'mse':
-            self.lmbda = MSE_LMBDA
+            self.lmbda = MSE_LMBDA_L if N > 192 else MSE_LMBDA_M
         elif metric.lower() == 'ms-ssim':
-            self.lmbda = MS_SSIM_LMBDA
+            self.lmbda = MS_SSIM_LMBDA_L if N > 192 else MS_SSIM_LMBDA_M
         else:
             raise NameError("Invalid distortion metric!")
         self.levels = levels = len(self.lmbda)

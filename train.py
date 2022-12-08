@@ -118,7 +118,7 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
         out_criterion = criterion(out, inputs, lmbda)
 
         # debug!
-        if out_criterion["D_loss"] > 1e4 and epoch >= 1:
+        if out_criterion["D_loss"] > 1e4 and epoch >= 2:
             torch.save({'img': inputs, 'level': level, 'alpha': alpha}, args["debug_img"])
             state = {'epoch': epoch,
                     'state_dict': net.state_dict(),
@@ -128,6 +128,7 @@ def train_epoch(net, criterion, optimizers, schedulers, data_loaders,
                     'aux_lr_scheduler': aux_lr_scheduler.state_dict(),
                     'best_val_loss': best_val_loss}
             torch.save(state, args["debug_checkpoint"])
+
             if (args["skip_invalid_loss"]):
                 print(f"[Training] epoch {epoch:3}: [{batch:4}/{len(train_loader):4}] | "
                       f" !!!WARNING!!! large loss detected, skip this iteration!")
@@ -259,18 +260,19 @@ def main(args):
     # load model and continue training
     if args["continue_training"]:
         checkpoint = torch.load(args["continue_checkpoint"], map_location=args["device"])
-        last_epoch = checkpoint['epoch']
-        best_val_loss = checkpoint['best_val_loss']
         net.load_state_dict(checkpoint['state_dict'])
-        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-        aux_lr_scheduler.load_state_dict(checkpoint["aux_lr_scheduler"])
-        print(f"[Preparing] Load last model and continue training.")
+        last_epoch = checkpoint['epoch']
         if args["continue_optimizer"]:
             optimizer.load_state_dict(checkpoint['optimizer'])
             aux_optimizer.load_state_dict(checkpoint['aux_optimizer'])
         if args["clear_best"]:
             best_val_loss = 999999.0
             print(f"[Preparing] clear best loss!")
+        else:
+            best_val_loss = checkpoint['best_val_loss']
+            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            aux_lr_scheduler.load_state_dict(checkpoint["aux_lr_scheduler"])
+        print(f"[Preparing] Load last model and continue training.")
     else:
         last_epoch = 0
         best_val_loss = 999999.0

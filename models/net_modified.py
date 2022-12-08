@@ -157,13 +157,6 @@ class Dec_AdaptMAtt(Dec_ModulatedAtt):
 class cheng2020_AdaptMAtt_woGMM(cheng2020_baseline_woGMM):
     def __init__(self, metric='mse', N=256, M=320, **kwargs):
         super().__init__(N=N, M=M, **kwargs)
-        # define real lambda values according to distortion metric
-        if metric.lower() == 'mse':
-            self.lmbda = MSE_LMBDA_NEW
-        elif metric.lower() == 'ms-ssim':
-            self.lmbda = MS_SSIM_LMBDA_NEW
-        else:
-            raise NameError("Invalid distortion metric!")
         self.levels = levels = len(self.lmbda)
 
         # training quality def
@@ -219,13 +212,6 @@ class Dec_AdaptScaleMAtt(Dec_ModulatedAtt):
 class cheng2020_AdaptScaleMAtt_woGMM(cheng2020_baseline_woGMM):
     def __init__(self, metric='mse', N=256, M=320, **kwargs):
         super().__init__(N=N, M=M, **kwargs)
-        # define real lambda values according to distortion metric
-        if metric.lower() == 'mse':
-            self.lmbda = MSE_LMBDA_NEW
-        elif metric.lower() == 'ms-ssim':
-            self.lmbda = MS_SSIM_LMBDA_NEW
-        else:
-            raise NameError("Invalid distortion metric!")
         self.levels = levels = len(self.lmbda)
 
         # training quality def
